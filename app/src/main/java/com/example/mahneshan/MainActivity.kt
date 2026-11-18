@@ -4,13 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.mahneshan.presentation.home.calendar.CalendarScreen
+import com.example.mahneshan.presentation.home.HomeScreen
+import com.example.mahneshan.presentation.home.HomeViewModel
 import com.example.mahneshan.ui.theme.MahNeshanTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,29 +19,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MahNeshanTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    val sharedViewModel: HomeViewModel = viewModel()
+                    var showCalendar by remember { mutableStateOf(false) }
+
+                    if (showCalendar) {
+                        CalendarScreen(
+                            viewModel = sharedViewModel,
+                            onBackClick = { showCalendar = false }
+                        )
+                    } else {
+                        HomeScreen(
+                            viewModel = sharedViewModel,
+                            onNavigateToCalendar = { showCalendar = true }
+                        )
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    MahNeshanTheme {
-        Greeting("Android")
     }
 }

@@ -29,6 +29,7 @@ data class PersianDate(
 }
 
 object PersianDateUtils {
+
     fun toPersian(date: LocalDate): PersianDate {
         val gYear = date.year
         val gMonth = date.monthValue
@@ -49,6 +50,52 @@ object PersianDateUtils {
         val jd = 1 + if (days < 186) (days % 31) else ((days - 186) % 30)
 
         return PersianDate(jy, jm, jd)
+    }
+
+    fun toGregorian(jYear: Int, jMonth: Int, jDay: Int): LocalDate {
+        val jy = jYear + 1595
+        var days = -355668 + (365 * jy) + ((jy / 33) * 8) + (((jy % 33) + 3) / 4) + jDay +
+                if (jMonth < 7) (jMonth - 1) * 31 else ((jMonth - 7) * 30) + 186
+        var gy = 400 * (days / 146097)
+        days %= 146097
+        if (days > 36524) {
+            gy += 100 * (--days / 36524)
+            days %= 36524
+            if (days >= 365) days++
+        }
+        gy += 4 * (days / 1461)
+        days %= 1461
+        if (days > 365) {
+            gy += (days - 1) / 365
+            days = (days - 1) % 365
+        }
+        var gd = days + 1
+        val salA = intArrayOf(0, 31, if ((gy % 4 == 0 && gy % 100 != 0) || (gy % 400 == 0)) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        var gm = 0
+        while (gm < 13 && gd > salA[gm]) {
+            gd -= salA[gm]
+            gm++
+        }
+        return LocalDate.of(gy, gm, gd)
+    }
+
+    fun isLeapPersianYear(year: Int): Boolean {
+        val remainder = year % 33
+        return remainder in listOf(1, 5, 9, 13, 17, 22, 26, 30)
+    }
+
+    fun getDaysInPersianMonth(year: Int, month: Int): Int {
+        return when (month) {
+            in 1..6 -> 31
+            in 7..11 -> 30
+            12 -> if (isLeapPersianYear(year)) 30 else 29
+            else -> 30
+        }
+    }
+
+    // تبدیل DayOfWeek میلادی به اندیس ستون‌های تقویم فارسی (شنبه = 0 تا جمعه = 6)
+    fun getPersianDayOfWeekIndex(date: LocalDate): Int {
+        return (date.dayOfWeek.value + 1) % 7
     }
 
     fun todayPersian(): PersianDate = toPersian(LocalDate.now())

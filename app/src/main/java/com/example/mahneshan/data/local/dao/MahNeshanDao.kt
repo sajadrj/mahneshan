@@ -45,4 +45,47 @@ interface MahNeshanDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedicationLog(log: MedicationLogEntity)
+
+    // --- توابع مربوط به بکاپ و بازیابی (Export / Import) ---
+    @Query("SELECT * FROM cycles")
+    suspend fun getAllCyclesOnce(): List<CycleEntity>
+
+    @Query("SELECT * FROM daily_logs")
+    suspend fun getAllDailyLogsOnce(): List<DailyLogEntity>
+
+    @Query("SELECT * FROM medications")
+    suspend fun getAllMedicationsOnce(): List<MedicationEntity>
+
+    @Query("SELECT * FROM medication_logs")
+    suspend fun getAllMedicationLogsOnce(): List<MedicationLogEntity>
+
+    @Query("DELETE FROM cycles")
+    suspend fun clearCycles()
+
+    @Query("DELETE FROM daily_logs")
+    suspend fun clearDailyLogs()
+
+    @Query("DELETE FROM medications")
+    suspend fun clearMedications()
+
+    @Query("DELETE FROM medication_logs")
+    suspend fun clearMedicationLogs()
+
+    @Transaction
+    suspend fun restoreFullBackup(
+        cycles: List<CycleEntity>,
+        dailyLogs: List<DailyLogEntity>,
+        medications: List<MedicationEntity>,
+        medicationLogs: List<MedicationLogEntity>
+    ) {
+        clearCycles()
+        clearDailyLogs()
+        clearMedications()
+        clearMedicationLogs()
+
+        cycles.forEach { insertCycle(it) }
+        dailyLogs.forEach { insertOrUpdateDailyLog(it) }
+        medications.forEach { insertMedication(it) }
+        medicationLogs.forEach { insertMedicationLog(it) }
+    }
 }

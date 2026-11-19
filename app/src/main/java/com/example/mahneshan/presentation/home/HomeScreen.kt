@@ -28,6 +28,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mahneshan.data.preferences.AppMode
 import com.example.mahneshan.domain.InsightType
 import com.example.mahneshan.utils.PersianDateUtils
+import androidx.core.graphics.toColorInt
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +39,30 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showAddMedDialog by remember { mutableStateOf(false) }
+    var showPregnancyDialog by remember { mutableStateOf(false) }
+
+    if (showPregnancyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPregnancyDialog = false },
+            title = { Text("ثبت بارداری مبارک! 🌸") },
+            text = {
+                Text("با تغییر حالت به بارداری، برنامه بر اساس تاریخ شروع آخرین قاعدگی ثبت‌شده شما، سن دقیق بارداری (هفته و روز) و تاریخ تقریبی زایمان را محاسبه خواهد کرد.\n\nآیا آخرین تاریخ پریود خود را در تقویم یا صفحه اصلی ثبت کرده‌اید؟")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setAppMode(AppMode.PREGNANCY)
+                    showPregnancyDialog = false
+                }) {
+                    Text("بله، ثبت شد")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPregnancyDialog = false }) {
+                    Text("خیر / انصراف")
+                }
+            }
+        )
+    }
 
     val context = LocalContext.current
     var showBackupMenu by remember { mutableStateOf(false) }
@@ -61,11 +87,13 @@ fun HomeScreen(
         }
     }
 
-    // رنگ اصلی حلقه بر اساس حالت انتخاب‌شده
-    val ringColor = when (state.appMode) {
-        AppMode.TRACKING -> Color(0xFFE91E63)        // صورتی/قرمز ملایم
-        AppMode.TRYING_CONCEIVE -> Color(0xFF009688) // سبز فیروزه‌ای
-        AppMode.PREGNANCY -> Color(0xFF7E57C2)       // بنفش آرامش‌بخش
+    // رنگ اصلی حلقه بر اساس فاز چرخه و حالت انتخاب‌شده
+    val ringColor = remember(state.summary.phaseColorHex, state.appMode) {
+        try {
+            Color(android.graphics.Color.parseColor(state.summary.phaseColorHex))
+        } catch (_: Exception) {
+            if (state.appMode == AppMode.PREGNANCY) Color(0xFF7E57C2) else Color(0xFFE91E63)
+        }
     }
 
     Scaffold(
@@ -137,7 +165,13 @@ fun HomeScreen(
                     items(AppMode.entries) { mode ->
                         FilterChip(
                             selected = state.appMode == mode,
-                            onClick = { viewModel.setAppMode(mode) },
+                            onClick = {
+                                if (mode == AppMode.PREGNANCY && state.appMode != AppMode.PREGNANCY) {
+                                    showPregnancyDialog = true
+                                } else {
+                                    viewModel.setAppMode(mode)
+                                }
+                            },
                             label = { Text(mode.title) },
                             leadingIcon = if (state.appMode == mode) {
                                 { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
@@ -195,14 +229,31 @@ fun HomeScreen(
                                 Text("ثبت پایان پریود")
                             }
                         } else {
-                            Button(
-                                onClick = { viewModel.logPeriodStart() },
-                                colors = ButtonDefaults.buttonColors(containerColor = ringColor),
-                                shape = RoundedCornerShape(12.dp)
+                            val latestCycle = state.cycles.firstOrNull()
+                            val endedToday = latestCycle != null && latestCycle.endDateEpochDay == LocalDate.now().toEpochDay()
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.WaterDrop, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("امروز پریود شدم")
+                                Button(
+                                    onClick = { viewModel.logPeriodStart() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.WaterDrop, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("امروز پریود شدم")
+                                }
+
+                                if (endedToday) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.undoPeriodEnd(latestCycle.id) },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("لغو پایان")
+                                    }
+                                }
                             }
                         }
                     }
@@ -297,12 +348,21 @@ fun HomeScreen(
                             }
                         }
 
-                        Checkbox(
-                            checked = medItem.isTakenToday,
-                            onCheckedChange = {
-                                viewModel.toggleMedicationTaken(medItem.medication.id, medItem.isTakenToday)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = medItem.isTakenToday,
+                                onCheckedChange = {
+                                    viewModel.toggleMedicationTaken(medItem.medication.id, medItem.isTakenToday)
+                                }
+                            )
+                            IconButton(onClick = { viewModel.deleteMedication(medItem.medication) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "حذف دارو",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }

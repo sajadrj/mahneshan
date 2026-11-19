@@ -12,8 +12,10 @@ import com.example.mahneshan.data.local.entity.MedicationEntity
 import com.example.mahneshan.data.local.entity.MedicationLogEntity
 import com.example.mahneshan.data.preferences.AppMode
 import com.example.mahneshan.data.preferences.UserPreferencesManager
+import com.example.mahneshan.data.reminder.MedicationReminderManager
 import com.example.mahneshan.domain.CycleCalculator
 import com.example.mahneshan.domain.CycleSummary
+import com.example.mahneshan.domain.InsightType
 import com.example.mahneshan.domain.SmartInsight
 import com.example.mahneshan.domain.SmartInsightEngine
 import kotlinx.coroutines.flow.*
@@ -40,6 +42,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val todayEpoch = LocalDate.now().toEpochDay()
 
     val allDailyLogs: Flow<List<DailyLogEntity>> = dao.getAllDailyLogs()
+
+    val isOnboardingCompleted: StateFlow<Boolean> = prefs.isOnboardingCompleted.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun saveOnboarding(
+        painSeverity: String,
+        flowIntensity: String,
+        periodLength: Int,
+        hasPregnancyHistory: Boolean,
+        takesHormonalPills: Boolean
+    ) {
+        viewModelScope.launch {
+            prefs.saveOnboardingProfile(
+                painSeverity = painSeverity,
+                flowIntensity = flowIntensity,
+                periodLength = periodLength,
+                hasPregnancyHistory = hasPregnancyHistory,
+                takesHormonalPills = takesHormonalPills
+            )
+        }
+    }
 
     val uiState: StateFlow<HomeUiState> = combine(
         dao.getAllCycles(),
@@ -123,6 +149,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // لغو پایان پریود (اگر به اشتباه ثبت شده باشد)
+    fun undoPeriodEnd(cycleId: Long) {
+        viewModelScope.launch {
+            val targetCycle = uiState.value.cycles.find { it.id == cycleId } ?: return@launch
+            dao.updateCycle(targetCycle.copy(endDateEpochDay = null))
+        }
+    }
+
+    // حذف چرخه
+    fun deleteCycle(cycle: CycleEntity) {
+        viewModelScope.launch {
+            dao.deleteCycle(cycle)
+        }
+    }
+
     // ثبت یا ویرایش یادداشت و علائم روزانه
     fun saveDailyLog(
         dateEpochDay: Long,
@@ -148,9 +189,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun addMedication(name: String, hour: Int, minute: Int) {
         if (name.isBlank()) return
         viewModelScope.launch {
-            dao.insertMedication(
+            val id = dao.insertMedication(
                 MedicationEntity(name = name.trim(), hour = hour, minute = minute)
             )
+            val med = MedicationEntity(id = id, name = name.trim(), hour = hour, minute = minute, isActive = true)
+            MedicationReminderManager.scheduleAlarm(getApplication(), med)
+        }
+    }
+
+    // حذف دارو و لغو یادآور آن
+    fun deleteMedication(medication: MedicationEntity) {
+        viewModelScope.launch {
+            dao.deleteMedication(medication)
+            MedicationReminderManager.cancelAlarm(getApplication(), medication.id)
         }
     }
 

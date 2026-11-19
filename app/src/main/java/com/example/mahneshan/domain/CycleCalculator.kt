@@ -20,7 +20,8 @@ data class CycleSummary(
     val ovulationDatePersian: String,
     val averageCycleLength: Int,
     val isCurrentlyOnPeriod: Boolean,
-    val activeCycleId: Long? = null
+    val activeCycleId: Long? = null,
+    val phaseColorHex: String = "#E91E63"
 )
 
 object CycleCalculator {
@@ -41,7 +42,8 @@ object CycleCalculator {
                 nextPeriodDatePersian = "نامشخص",
                 ovulationDatePersian = "نامشخص",
                 averageCycleLength = defaultCycleLen,
-                isCurrentlyOnPeriod = false
+                isCurrentlyOnPeriod = false,
+                phaseColorHex = "#E91E63"
             )
         }
 
@@ -66,7 +68,8 @@ object CycleCalculator {
                 nextPeriodDatePersian = "-",
                 ovulationDatePersian = "-",
                 averageCycleLength = avgCycleLen,
-                isCurrentlyOnPeriod = false
+                isCurrentlyOnPeriod = false,
+                phaseColorHex = "#7E57C2" // بنفش بارداری
             )
         }
 
@@ -91,36 +94,48 @@ object CycleCalculator {
                 ovulationDatePersian = ovulationPersian,
                 averageCycleLength = avgCycleLen,
                 isCurrentlyOnPeriod = true,
-                activeCycleId = latestCycle.id
+                activeCycleId = latestCycle.id,
+                phaseColorHex = "#E91E63" // صورتی/قرمز دوره
             )
         }
 
-        // وضعیت روزهای دیگر بسته به حالت انتخاب‌شده (عادی یا اقدام به بارداری)
+        // وضعیت روزهای دیگر بسته به فاز چرخه
         val daysToNext = nextPeriodStart - todayEpoch
         val mainText: String
         val subText: String
+        val phaseColor: String
 
         when {
             todayEpoch == ovulationDay -> {
                 mainText = "روز تخمک‌گذاری"
-                subText = if (mode == AppMode.TRYING_CONCEIVE) "بیشترین شانس بارداری امروز است" else "احتمال بالای بارداری"
+                subText = "اوج احتمال بارداری و تخمک‌گذاری"
+                phaseColor = "#009688" // سبز فیروزه‌ای تخمک‌گذاری
             }
             todayEpoch in fertileStart..fertileEnd -> {
                 mainText = "بازه باروری"
-                subText = if (mode == AppMode.TRYING_CONCEIVE) "زمان مناسب برای اقدام به بارداری" else "احتمال بارداری بالا است"
+                subText = "احتمال بارداری بالا (تخمک‌گذاری: $ovulationPersian)"
+                phaseColor = "#26A69A" // فیروزه‌ای روشن بازه باروری
             }
-            daysToNext > 0 -> {
+            daysToNext in 1..5 -> {
                 mainText = "$daysToNext روز تا پریود"
-                subText = if (mode == AppMode.TRYING_CONCEIVE) "شروع بازه باروری بعدی: $ovulationPersian" else "پیش‌بینی شروع دوره: $nextPeriodPersian"
+                subText = "پیش‌بینی شروع دوره: $nextPeriodPersian (تخمک‌گذاری: $ovulationPersian)"
+                phaseColor = "#FF7043" // نارنجی گرم (نزدیک به پریود)
+            }
+            daysToNext > 5 -> {
+                mainText = "$daysToNext روز تا پریود"
+                subText = "پیش‌بینی شروع دوره: $nextPeriodPersian (تخمک‌گذاری: $ovulationPersian)"
+                phaseColor = "#EC407A" // صورتی ملایم فاز فولیکولار/لوتئال
             }
             daysToNext == 0L -> {
                 mainText = "امروز موعد پریود"
                 subText = "در صورت شروع، دکمه ثبت را بزنید"
+                phaseColor = "#FF7043"
             }
             else -> {
                 val lateDays = -daysToNext
                 mainText = "$lateDays روز تأخیر"
                 subText = "موعد پیش‌بینی‌شده: $nextPeriodPersian"
+                phaseColor = "#D32F2F" // قرمز تأخیر
             }
         }
 
@@ -130,7 +145,8 @@ object CycleCalculator {
             nextPeriodDatePersian = nextPeriodPersian,
             ovulationDatePersian = ovulationPersian,
             averageCycleLength = avgCycleLen,
-            isCurrentlyOnPeriod = false
+            isCurrentlyOnPeriod = false,
+            phaseColorHex = phaseColor
         )
     }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.mahneshan.data.local.entity.CycleEntity
 import com.example.mahneshan.data.local.entity.DailyLogEntity
 import com.example.mahneshan.domain.CycleCalculator
 import com.example.mahneshan.domain.DayStatus
@@ -216,12 +217,20 @@ fun CalendarScreen(
         // دیالوگ ثبت علائم و وضعیت روز انتخاب‌شده
         selectedEpochDay?.let { epoch ->
             val existingLog = dailyLogs.find { it.dateEpochDay == epoch }
+            val cycleOnThisDay = state.cycles.find { 
+                it.startDateEpochDay == epoch || (it.endDateEpochDay != null && epoch in it.startDateEpochDay..it.endDateEpochDay)
+            }
             DailyLogDialog(
                 epochDay = epoch,
                 existingLog = existingLog,
+                cycleOnThisDay = cycleOnThisDay,
                 onDismiss = { selectedEpochDay = null },
                 onMarkPeriodStart = {
                     viewModel.logPeriodStart(epoch)
+                    selectedEpochDay = null
+                },
+                onDeleteCycle = { cycle ->
+                    viewModel.deleteCycle(cycle)
                     selectedEpochDay = null
                 },
                 onSaveLog = { flow, mood, symptoms, note ->
@@ -252,14 +261,20 @@ private fun LegendItem(color: Color, label: String) {
 private fun DailyLogDialog(
     epochDay: Long,
     existingLog: DailyLogEntity?,
+    cycleOnThisDay: CycleEntity?,
     onDismiss: () -> Unit,
     onMarkPeriodStart: () -> Unit,
+    onDeleteCycle: (CycleEntity) -> Unit,
     onSaveLog: (Int, String, List<String>, String) -> Unit
 ) {
     val persianDate = PersianDateUtils.toPersian(LocalDate.ofEpochDay(epochDay))
 
     var flowLevel by remember { mutableIntStateOf(existingLog?.flowLevel ?: 0) }
-    var selectedMood by remember { mutableStateOf(existingLog?.mood ?: "") }
+    var selectedMoods by remember {
+        mutableStateOf(
+            existingLog?.mood?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+        )
+    }
     var selectedSymptoms by remember {
         mutableStateOf(
             existingLog?.symptoms?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
@@ -268,8 +283,8 @@ private fun DailyLogDialog(
     var note by remember { mutableStateOf(existingLog?.note ?: "") }
 
     val flowOptions = listOf("ندارد", "کم", "متوسط", "زیاد")
-    val moodOptions = listOf("عادی", "حساس", "خسته", "پرانرژی", "مضطرب")
-    val symptomOptions = listOf("دل‌درد", "کمردرد", "سردرد", "نفخ", "حالت تهوع")
+    val moodOptions = listOf("عادی", "حساس", "خسته", "بی‌حوصله", "عصبی", "پرانرژی", "مضطرب", "شاد")
+    val symptomOptions = listOf("دل‌درد", "سردرد", "نفخ", "تهوع", "کمردرد", "خستگی", "گرفتگی عضلانی")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -281,13 +296,24 @@ private fun DailyLogDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // دکمه ثبت شروع پریود در این تاریخ
-                OutlinedButton(
-                    onClick = onMarkPeriodStart,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("ثبت شروع پریود در این تاریخ")
+                // دکمه ثبت شروع پریود در این تاریخ یا حذف دوره ثبت‌شده
+                if (cycleOnThisDay != null) {
+                    Button(
+                        onClick = { onDeleteCycle(cycleOnThisDay) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("حذف ثبت پریود در این تاریخ", color = Color.White)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onMarkPeriodStart,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("ثبت شروع پریود در این تاریخ")
+                    }
                 }
 
                 // میزان خونریزی
@@ -303,12 +329,15 @@ private fun DailyLogDialog(
                 }
 
                 // حالت روحی
-                Text("حالت روحی:", style = MaterialTheme.typography.labelLarge)
+                Text("حالت روحی (انتخاب چندگانه):", style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     moodOptions.forEach { mood ->
+                        val isSelected = mood in selectedMoods
                         FilterChip(
-                            selected = selectedMood == mood,
-                            onClick = { selectedMood = if (selectedMood == mood) "" else mood },
+                            selected = isSelected,
+                            onClick = {
+                                selectedMoods = if (isSelected) selectedMoods - mood else selectedMoods + mood
+                            },
                             label = { Text(mood, style = MaterialTheme.typography.bodySmall) }
                         )
                     }
@@ -341,7 +370,7 @@ private fun DailyLogDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                onSaveLog(flowLevel, selectedMood, selectedSymptoms.toList(), note)
+                onSaveLog(flowLevel, selectedMoods.joinToString(","), selectedSymptoms.toList(), note)
             }) {
                 Text("ذخیره")
             }

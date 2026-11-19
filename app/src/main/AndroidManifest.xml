@@ -30,6 +30,9 @@
         <receiver
             android:name=".data.reminder.MedicationAlarmReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".data.reminder.PeriodAlarmReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

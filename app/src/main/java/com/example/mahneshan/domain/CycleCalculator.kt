@@ -43,7 +43,7 @@ object CycleCalculator {
                 ovulationDatePersian = "نامشخص",
                 averageCycleLength = defaultCycleLen,
                 isCurrentlyOnPeriod = false,
-                phaseColorHex = "#E91E63"
+                phaseColorHex = "#5C6BC0"
             )
         }
 
@@ -123,8 +123,8 @@ object CycleCalculator {
             }
             daysToNext > 5 -> {
                 mainText = "$daysToNext روز تا پریود"
-                subText = "پیش‌بینی شروع دوره: $nextPeriodPersian (تخمک‌گذاری: $ovulationPersian)"
-                phaseColor = "#EC407A" // صورتی ملایم فاز فولیکولار/لوتئال
+                subText = "احتمال بارداری کم (تخمک‌گذاری بعدی: $ovulationPersian)"
+                phaseColor = "#5C6BC0" // آبی/نیلی ملایم روزهای عادی (غیر پریود و غیر باروری)
             }
             daysToNext == 0L -> {
                 mainText = "امروز موعد پریود"

@@ -13,9 +13,12 @@ import com.example.mahneshan.data.local.entity.MedicationLogEntity
 import com.example.mahneshan.data.preferences.AppMode
 import com.example.mahneshan.data.preferences.UserPreferencesManager
 import com.example.mahneshan.data.reminder.MedicationReminderManager
+import com.example.mahneshan.data.reminder.PeriodReminderManager
 import com.example.mahneshan.domain.CycleCalculator
 import com.example.mahneshan.domain.CycleSummary
+import com.example.mahneshan.domain.HealthTipEngine
 import com.example.mahneshan.domain.InsightType
+import com.example.mahneshan.domain.PhaseHealthTip
 import com.example.mahneshan.domain.SmartInsight
 import com.example.mahneshan.domain.SmartInsightEngine
 import kotlinx.coroutines.flow.*
@@ -30,6 +33,7 @@ data class MedicationUiItem(
 data class HomeUiState(
     val appMode: AppMode = AppMode.TRACKING,
     val summary: CycleSummary = CycleCalculator.calculateSummary(emptyList(), AppMode.TRACKING),
+    val phaseTip: PhaseHealthTip = HealthTipEngine.getTipForPhase(emptyList(), AppMode.TRACKING),
     val insights: List<SmartInsight> = emptyList(),
     val todayMedications: List<MedicationUiItem> = emptyList(),
     val cycles: List<CycleEntity> = emptyList()
@@ -80,6 +84,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             mode = mode
         )
 
+        val phaseTip = HealthTipEngine.getTipForPhase(
+            cycles = cycles,
+            mode = mode,
+            todayEpochDay = todayEpoch
+        )
+
         val insights = if (mode != AppMode.PREGNANCY) {
             SmartInsightEngine.generateInsights(
                 cycles = cycles,
@@ -89,6 +99,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             )
         } else {
             emptyList()
+        }
+
+        // تنظیم هوشمند اعلان ۲ روز قبل از شروع پریود
+        if (mode != AppMode.PREGNANCY && cycles.isNotEmpty()) {
+            val lastStart = cycles.first().startDateEpochDay
+            val nextPeriodStart = lastStart + summary.averageCycleLength
+            PeriodReminderManager.scheduleReminder2DaysBefore(getApplication(), nextPeriodStart)
+        } else {
+            PeriodReminderManager.cancelReminder(getApplication())
         }
 
         val takenIds = medLogs.filter { it.isTaken }.map { it.medicationId }.toSet()
@@ -102,6 +121,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         HomeUiState(
             appMode = mode,
             summary = summary,
+            phaseTip = phaseTip,
             insights = insights,
             todayMedications = medUiItems,
             cycles = cycles

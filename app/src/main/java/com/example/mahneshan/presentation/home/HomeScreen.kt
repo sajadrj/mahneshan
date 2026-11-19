@@ -27,6 +27,7 @@ import android.widget.Toast
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mahneshan.data.preferences.AppMode
 import com.example.mahneshan.domain.InsightType
+import com.example.mahneshan.domain.PhaseHealthTip
 import com.example.mahneshan.utils.PersianDateUtils
 import androidx.core.graphics.toColorInt
 import java.time.LocalDate
@@ -35,7 +36,9 @@ import java.time.LocalDate
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
-    onNavigateToCalendar: () -> Unit = {}
+    onNavigateToCalendar: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     var showAddMedDialog by remember { mutableStateOf(false) }
@@ -114,6 +117,12 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToHistory) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "تاریخچه دوره‌ها"
+                        )
+                    }
                     IconButton(onClick = onNavigateToCalendar) {
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
@@ -140,6 +149,13 @@ fun HomeScreen(
                                 onClick = {
                                     showBackupMenu = false
                                     importLauncher.launch(arrayOf("application/json"))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("درباره توسعه‌دهنده") },
+                                onClick = {
+                                    showBackupMenu = false
+                                    onNavigateToAbout()
                                 }
                             )
                         }
@@ -280,6 +296,24 @@ fun HomeScreen(
                             InfoColumn(title = "میانگین چرخه", value = "${state.summary.averageCycleLength} روز")
                         }
                     }
+                }
+            }
+
+            // ۴. کارت راهنمای سلامتی و تغذیه متناسب با فاز فعلی
+            item {
+                PhaseHealthTipCard(tip = state.phaseTip)
+            }
+
+            // ۵. دکمه میانبر تاریخچه دوره‌ها جهت ارائه به پزشک
+            item {
+                OutlinedButton(
+                    onClick = onNavigateToHistory,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.History, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("مشاهده تاریخچه و سوابق دوره‌ها (ارائه به پزشک)")
                 }
             }
 
@@ -490,4 +524,83 @@ private fun AddMedicationDialog(
             }
         }
     )
+}
+
+@Composable
+private fun PhaseHealthTipCard(tip: PhaseHealthTip) {
+    val cardColor = remember(tip.containerColorHex) {
+        try {
+            Color(android.graphics.Color.parseColor(tip.containerColorHex))
+        } catch (_: Exception) {
+            Color(0xFFFCE4EC)
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = tip.phaseName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    imageVector = Icons.Default.Lightbulb,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = tip.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = tip.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            tip.tips.forEach { text ->
+                Row(
+                    modifier = Modifier.padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = "• ",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
 }

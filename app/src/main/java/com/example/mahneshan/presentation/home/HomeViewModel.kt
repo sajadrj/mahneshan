@@ -142,7 +142,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // ثبت شروع پریود جدید (امروز یا تاریخ دلخواه)
     fun logPeriodStart(startEpochDay: Long = LocalDate.now().toEpochDay()) {
         viewModelScope.launch {
+            // اگر کاربر در حالت بارداری بود، به طور خودکار به حالت ردیابی چرخه برگردد
+            if (uiState.value.appMode == AppMode.PREGNANCY) {
+                prefs.setAppMode(AppMode.TRACKING)
+            }
+
             val currentCycles = uiState.value.cycles
+
+            // ۱. اگر برای امروز قبلاً چرخه‌ای ثبت شده که پایان یافته بود، با زدن دوباره دکمه آن را بازگشایی (فعال) می‌کنیم
+            val existingTodayCycle = currentCycles.find { it.startDateEpochDay == startEpochDay }
+            if (existingTodayCycle != null) {
+                if (existingTodayCycle.endDateEpochDay != null) {
+                    dao.updateCycle(existingTodayCycle.copy(endDateEpochDay = null))
+                }
+                return@launch
+            }
+
+            // ۲. اگر چرخه بازی از قبل (روزهای قبل) وجود دارد که پایان نیافته، آن را می‌بندیم
+            val activeCycle = currentCycles.find { it.endDateEpochDay == null }
+            if (activeCycle != null && activeCycle.startDateEpochDay < startEpochDay) {
+                val assumedEnd = startEpochDay - 1
+                dao.updateCycle(activeCycle.copy(endDateEpochDay = assumedEnd))
+            }
+
             val previousStart = currentCycles.firstOrNull()?.startDateEpochDay
 
             // محاسبه طول چرخه نسبت به دوره قبلی (در صورت وجود)

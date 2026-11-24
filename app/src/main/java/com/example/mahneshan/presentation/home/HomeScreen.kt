@@ -43,6 +43,30 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsState()
     var showAddMedDialog by remember { mutableStateOf(false) }
     var showPregnancyDialog by remember { mutableStateOf(false) }
+    var showConfirmEndDialog by remember { mutableStateOf(false) }
+
+    if (showConfirmEndDialog && state.summary.activeCycleId != null) {
+        AlertDialog(
+            onDismissRequest = { showConfirmEndDialog = false },
+            title = { Text("پایان دوره قاعدگی") },
+            text = { Text("آیا از اتمام دوره قاعدگی خود اطمینان دارید؟") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.logPeriodEnd(state.summary.activeCycleId!!)
+                        showConfirmEndDialog = false
+                    }
+                ) {
+                    Text("بله، ثبت پایان")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmEndDialog = false }) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
 
     if (showPregnancyDialog) {
         AlertDialog(
@@ -232,11 +256,11 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // دکمه ثبت سریع (در حالت بارداری مخفی می‌شود)
+                    // دکمه ثبت سریع (در حالت بارداری دکمه بازگشت به ردیابی نمایش داده می‌شود)
                     if (state.appMode != AppMode.PREGNANCY) {
                         if (state.summary.isCurrentlyOnPeriod && state.summary.activeCycleId != null) {
                             Button(
-                                onClick = { viewModel.logPeriodEnd(state.summary.activeCycleId!!) },
+                                onClick = { showConfirmEndDialog = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -245,32 +269,24 @@ fun HomeScreen(
                                 Text("ثبت پایان پریود")
                             }
                         } else {
-                            val latestCycle = state.cycles.firstOrNull()
-                            val endedToday = latestCycle != null && latestCycle.endDateEpochDay == LocalDate.now().toEpochDay()
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Button(
+                                onClick = { viewModel.logPeriodStart() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Button(
-                                    onClick = { viewModel.logPeriodStart() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.WaterDrop, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("امروز پریود شدم")
-                                }
-
-                                if (endedToday) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.undoPeriodEnd(latestCycle.id) },
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Text("لغو پایان")
-                                    }
-                                }
+                                Icon(Icons.Default.WaterDrop, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("امروز پریود شدم")
                             }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { viewModel.setAppMode(AppMode.TRACKING) },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("بازگشت به حالت ردیابی چرخه")
                         }
                     }
                 }

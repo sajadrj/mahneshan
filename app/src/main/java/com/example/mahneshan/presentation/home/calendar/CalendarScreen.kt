@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -300,19 +301,31 @@ private fun DailyLogDialog(
                 if (cycleOnThisDay != null) {
                     Button(
                         onClick = { onDeleteCycle(cycleOnThisDay) },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
-                        Text("حذف ثبت پریود در این تاریخ", color = Color.White)
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("حذف ثبت پریود در این تاریخ", fontWeight = FontWeight.Bold)
                     }
                 } else {
-                    OutlinedButton(
+                    Button(
                         onClick = onMarkPeriodStart,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE91E63),
+                            contentColor = Color.White
+                        ),
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
-                        Text("ثبت شروع پریود در این تاریخ")
+                        Icon(Icons.Default.WaterDrop, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ثبت شروع پریود در این تاریخ", fontWeight = FontWeight.Bold)
                     }
                 }
 

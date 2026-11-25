@@ -9,7 +9,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mahneshan.data.preferences.AppMode
 import com.example.mahneshan.domain.InsightType
 import com.example.mahneshan.domain.PhaseHealthTip
+import com.example.mahneshan.utils.PersianDate
 import com.example.mahneshan.utils.PersianDateUtils
 import androidx.core.graphics.toColorInt
 import java.time.LocalDate
@@ -44,6 +49,17 @@ fun HomeScreen(
     var showAddMedDialog by remember { mutableStateOf(false) }
     var showPregnancyDialog by remember { mutableStateOf(false) }
     var showConfirmEndDialog by remember { mutableStateOf(false) }
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+
+    if (showDatePickerDialog) {
+        LogPeriodDatePickerDialog(
+            onDismiss = { showDatePickerDialog = false },
+            onConfirmDate = { selectedEpoch ->
+                viewModel.logPeriodStart(selectedEpoch)
+                showDatePickerDialog = false
+            }
+        )
+    }
 
     if (showConfirmEndDialog && state.summary.activeCycleId != null) {
         AlertDialog(
@@ -270,13 +286,14 @@ fun HomeScreen(
                             }
                         } else {
                             Button(
-                                onClick = { viewModel.logPeriodStart() },
+                                onClick = { showDatePickerDialog = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(14.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                             ) {
                                 Icon(Icons.Default.WaterDrop, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("امروز پریود شدم")
+                                Text("ثبت شروع پریود (انتخاب تاریخ)", fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
@@ -532,6 +549,211 @@ private fun AddMedicationDialog(
                 }
             }) {
                 Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("انصراف")
+            }
+        }
+    )
+}
+
+@Composable
+private fun LogPeriodDatePickerDialog(
+    onDismiss: () -> Unit,
+    onConfirmDate: (Long) -> Unit
+) {
+    val todayPersian = remember { PersianDateUtils.todayPersian() }
+    val todayEpoch = remember { LocalDate.now().toEpochDay() }
+    val yesterdayEpoch = remember { todayEpoch - 1 }
+    val yesterdayPersian = remember { PersianDateUtils.toPersian(LocalDate.ofEpochDay(yesterdayEpoch)) }
+
+    var currentYear by remember { mutableIntStateOf(todayPersian.year) }
+    var currentMonth by remember { mutableIntStateOf(todayPersian.month) }
+    var selectedEpoch by remember { mutableLongStateOf(todayEpoch) }
+
+    val daysInMonth = PersianDateUtils.getDaysInPersianMonth(currentYear, currentMonth)
+    val firstDayGregorian = PersianDateUtils.toGregorian(currentYear, currentMonth, 1)
+    val startOffset = PersianDateUtils.getPersianDayOfWeekIndex(firstDayGregorian)
+    val weekDays = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    tint = Color(0xFFE91E63)
+                )
+                Text("ثبت تاریخ شروع پریود", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "تاریخ شروع دوره جدید خود را انتخاب کنید:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedEpoch == todayEpoch,
+                        onClick = { selectedEpoch = todayEpoch },
+                        label = { Text("امروز (${todayPersian.day} ${todayPersian.monthName})", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = selectedEpoch == yesterdayEpoch,
+                        onClick = { selectedEpoch = yesterdayEpoch },
+                        label = { Text("دیروز (${yesterdayPersian.day} ${yesterdayPersian.monthName})", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (currentMonth == 1) {
+                                currentMonth = 12
+                                currentYear--
+                            } else {
+                                currentMonth--
+                            }
+                        }
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "ماه قبل")
+                    }
+
+                    Text(
+                        text = "${PersianDate(currentYear, currentMonth, 1).monthName} $currentYear",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    IconButton(
+                        onClick = {
+                            if (currentMonth == 12) {
+                                currentMonth = 1
+                                currentYear++
+                            } else {
+                                currentMonth++
+                            }
+                        }
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "ماه بعد")
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    weekDays.forEach { dayName ->
+                        Text(
+                            text = dayName,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val totalSlots = startOffset + daysInMonth
+                    val rows = (totalSlots + 6) / 7
+
+                    for (r in 0 until rows) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            for (c in 0 until 7) {
+                                val cellIndex = r * 7 + c
+                                val dayNum = cellIndex - startOffset + 1
+
+                                if (cellIndex < startOffset || dayNum > daysInMonth) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                } else {
+                                    val dateEpoch = PersianDateUtils.toGregorian(currentYear, currentMonth, dayNum).toEpochDay()
+                                    val isSelected = dateEpoch == selectedEpoch
+                                    val isFuture = dateEpoch > todayEpoch
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(CircleShape)
+                                            .background(
+                                                when {
+                                                    isSelected -> Color(0xFFE91E63)
+                                                    else -> Color.Transparent
+                                                }
+                                            )
+                                            .clickable(enabled = !isFuture) {
+                                                selectedEpoch = dateEpoch
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = dayNum.toString(),
+                                            color = when {
+                                                isSelected -> Color.White
+                                                isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                                else -> MaterialTheme.colorScheme.onSurface
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val selectedPersian = remember(selectedEpoch) {
+                    PersianDateUtils.toPersian(LocalDate.ofEpochDay(selectedEpoch))
+                }
+                Text(
+                    text = "تاریخ انتخابی: ${selectedPersian.formatFull()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFFE91E63),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirmDate(selectedEpoch)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("ثبت در این تاریخ")
             }
         },
         dismissButton = {
